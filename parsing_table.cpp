@@ -1,121 +1,43 @@
 #include "grammar.h"
-
-void generateParsingTable()
-{
-    if (grammar.empty())
-    {
-        cout << "\nPlease enter a grammar first.\n";
-        return;
-    }
-
-    set<char> nonTerminals = getNonTerminals();
-    vector< set<char> > first = getFirstSets();
-    vector< set<char> > follow = getFollowSets();
-
-    vector<char> terminals;
-    for (int i = 0; i < (int)grammar.size(); i++)
-    {
-        string line = grammar[i];
-        size_t arrow = line.find("->");
-        if (arrow == string::npos) continue;
-
-        string right = line.substr(arrow + 2);
-
-        for (int j = 0; j < (int)right.length(); j++)
-        {
-            char symbol = right[j];
-
-            if (symbol != '|' && symbol != '#' &&
-                nonTerminals.count(symbol) == 0 &&
-                find(terminals.begin(), terminals.end(), symbol) == terminals.end())
-            {
-                terminals.push_back(symbol);
+void generateParsingTable() {
+    if (grammar.empty()) { cout << "Please enter a grammar first.\n"; return; }
+    calculateFirst();
+    calculateFollow();
+    map<char, map<char, string> > table;
+    bool conflict=false;
+    for (map<char, vector<string> >::iterator it=grammar.begin(); it!=grammar.end(); ++it) {
+        char left=it->first;
+        for (int i=0; i<(int)it->second.size(); i++) {
+            string rhs=it->second[i];
+            set<char> f=firstOfString(rhs);
+            for (set<char>::iterator x=f.begin(); x!=f.end(); ++x) {
+                if (*x=='#') continue;
+                if (!table[left][*x].empty()) {
+                    conflict=true;
+                    cout << "Conflict at M[" << left << ", " << *x << "]\n";
+                } else table[left][*x]=string(1,left)+"->"+rhs;
+            }
+            if (f.count('#')) {
+                for (set<char>::iterator x=followSet[left].begin(); x!=followSet[left].end(); ++x) {
+                    if (!table[left][*x].empty()) {
+                        conflict=true;
+                        cout << "Conflict at M[" << left << ", " << *x << "]\n";
+                    } else table[left][*x]=string(1,left)+"->"+rhs;
+                }
             }
         }
     }
-
-    if (find(terminals.begin(), terminals.end(), '$') == terminals.end())
-        terminals.push_back('$');
-
-    string table[256][256];
-    bool conflict = false;
-
-    for (int i = 0; i < (int)grammar.size(); i++)
-    {
-        string line = grammar[i];
-        size_t arrow = line.find("->");
-        if (arrow == string::npos || arrow == 0) continue;
-
-        char left = line[0];
-        string right = line.substr(arrow + 2);
-        string alternative = "";
-
-        for (int j = 0; j <= (int)right.length(); j++)
-        {
-            if (j == (int)right.length() || right[j] == '|')
-            {
-                set<char> currentFirst = firstOfString(alternative, first);
-
-                for (set<char>::iterator it = currentFirst.begin();
-                     it != currentFirst.end(); ++it)
-                {
-                    if (*it != '#')
-                    {
-                        if (table[(int)left][(int)*it] != "")
-                            conflict = true;
-
-                        table[(int)left][(int)*it] = string(1, left) + "->" + alternative;
-                    }
-                }
-
-                if (currentFirst.count('#') > 0)
-                {
-                    for (set<char>::iterator it = follow[(int)left].begin();
-                         it != follow[(int)left].end(); ++it)
-                    {
-                        if (table[(int)left][(int)*it] != "")
-                            conflict = true;
-
-                        table[(int)left][(int)*it] = string(1, left) + "->" + alternative;
-                    }
-                }
-
-                alternative = "";
-            }
-            else
-                alternative += right[j];
-        }
+    set<char> cols=terminals; cols.insert('$');
+    cout << "\n--- LL(1) Parsing Table ---\nNT/T\t";
+    for (set<char>::iterator c=cols.begin(); c!=cols.end(); ++c) cout << *c << "\t";
+    cout << "\n";
+    for (set<char>::iterator r=nonTerminals.begin(); r!=nonTerminals.end(); ++r) {
+        cout << *r << "\t";
+        for (set<char>::iterator c=cols.begin(); c!=cols.end(); ++c)
+            cout << (table[*r][*c].empty() ? "-" : table[*r][*c]) << "\t";
+        cout << "\n";
     }
-
-    cout << "\n---------- LL(1) Parsing Table ----------\n";
-    cout << "NT/T\t";
-
-    for (int i = 0; i < (int)terminals.size(); i++)
-        cout << terminals[i] << "\t";
-
-    cout << endl;
-
-    for (set<char>::iterator nt = nonTerminals.begin(); nt != nonTerminals.end(); ++nt)
-    {
-        cout << *nt << "\t";
-
-        for (int i = 0; i < (int)terminals.size(); i++)
-        {
-            string cell = table[(int)*nt][(int)terminals[i]];
-
-            if (cell == "")
-                cout << "-\t";
-            else
-                cout << cell << "\t";
-        }
-
-        cout << endl;
-    }
-
-    cout << "\nFinal Result: ";
-
-    if (conflict)
-        cout << "Grammar is NOT LL(1) because a table conflict exists.\n";
-    else
-        cout << "No table conflict found. Grammar is LL(1) for this simple input.\n";
+    cout << "\n--- LL(1) Check ---\n";
+    if (conflict) cout << "Grammar is NOT LL(1).\nConflict found in parsing table.\n";
+    else cout << "Grammar is LL(1).\nNo conflicts found in the parsing table.\n";
 }

@@ -1,31 +1,21 @@
 #ifndef GRAMMAR_H
 #define GRAMMAR_H
-
 #include <iostream>
 #include <vector>
 #include <string>
+#include <map>
 #include <set>
-#include <algorithm>
 using namespace std;
-
-extern vector<string> grammar;
-
+extern map<char, vector<string> > grammar;
+extern set<char> nonTerminals, terminals;
+extern char startSymbol;
+extern map<char, set<char> > firstSet, followSet;
 void enterGrammar();
 void displayGrammar();
-void showGrammarInfo();
-
-void removeLeftRecursion();
-void applyLeftFactoring();
-
+void findTerminals();
 void calculateFirst();
 void calculateFollow();
+set<char> firstOfString(string text);
 void generateParsingTable();
-
-void showAmbiguityExamples();
-
-set<char> getNonTerminals();
-vector< set<char> > getFirstSets();
-vector< set<char> > getFollowSets();
-set<char> firstOfString(string text, vector< set<char> > firstSets);
-
+void showSet(char symbol, set<char> values);
 #endif
